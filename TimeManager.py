@@ -2,11 +2,13 @@ import time
  
 class TimeManager:
     def __init__(self):
-        self.beforeTime = time.time()
+        self.__beforeTime = time.time()
+        self.__deltaTime = 0
 
     def update(self):
-        self.beforeTime = time.time()
+        now = time.time()
+        self.__deltaTime = now - self.__beforeTime
+        self.__beforeTime = now
 
     def deltaTime(self):
-        now = time.time()
-        return (now - self.beforeTime) / 1000
+        return self.__deltaTime
