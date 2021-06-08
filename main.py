@@ -1,7 +1,6 @@
 import TimeManager
 import turtle
 import random
-import time
  
 isPlaying = False
 isStarting = False
@@ -26,7 +25,9 @@ CLOUD_SPAWN_TIME = 6
 pipeTimer = 0
 DEFAULT_PIPE_SPAWN_TIME = 3
 
-DEFAULT_PIPE_SPEED = 70
+DEFAULT_PIPE_SPEED = 80
+
+PIPE_RECT_WIDTH = 30
 
 JUMP_FORCE = 200
 
@@ -40,6 +41,30 @@ pipeTurtle = turtle.Turtle()
 
 beforePipeAir = random.randrange(-HEIGHT / 2, HEIGHT / 2)
 
+MAX_LIFE = 3 #MAX_LIFE + 1 = 목숨
+
+def init():
+    global isStarting, beforePipeAir, timeutil, player, playTimer, cloudTimer, pipeTimer
+    isStarting = False
+    cloudList.clear()
+    pipeList.clear()
+
+    destroyCloud.clear()
+    destroyPipe.clear()
+
+    if timeutil == None:
+        timeutil = TimeManager.TimeManager()
+    
+    if player != None:
+        player.destroy()
+        player = None
+
+    playTimer = 0
+    cloudTimer = 4
+    pipeTimer = 0
+
+    beforePipeAir = random.randrange(-HEIGHT / 2, HEIGHT / 2)
+
 class GameObject:
     def update(self):
         pass
@@ -49,6 +74,7 @@ class PlayerManager(GameObject):
         self.__gameObject = turtle.Turtle()
         self.__gameObject.shape("turtle")
         self.__gameObject.shapesize(1.4)
+        self.__life = MAX_LIFE
         init_turtle(self.__gameObject)
         self.__gameObject.showturtle()
         turtle.onkeypress(self.jump, "space")
@@ -77,6 +103,21 @@ class PlayerManager(GameObject):
     def jump(self):
         self.__jumped = True
         self.__jumpTimer = 0
+    
+    def destroy(self):
+        self.__gameObject.hideturtle()
+
+    def damaged(self):
+        self.__life -= 1
+    
+    def isDie(self):
+        return self.__life < 0
+
+    def getX(self):
+        return self.__gameObject.xcor()
+    
+    def getY(self):
+        return self.__gameObject.ycor()
 
 class Cloud(GameObject):
     def __init__(self):
@@ -118,6 +159,14 @@ def clamp(v, min, max):
     if v > max: return max
     elif v < min: return min
     return v
+
+def within(v, min, max):
+    if min > max:
+        temp = min
+        min = max
+        max = temp
+    
+    return v >= min and v <= max
 
 def message(m1, m2, color="black"):
     textTurtle.pencolor(color)
@@ -175,7 +224,7 @@ def spawnCloud():
 def spawnPipe():
     global pipeTimer
     pipeTimer += timeutil.deltaTime()
-    if pipeTimer >= DEFAULT_PIPE_SPAWN_TIME * speedRate:
+    if pipeTimer >= DEFAULT_PIPE_SPAWN_TIME / speedRate:
         pipeList.append(PipeObject())
         pipeTimer = 0
 
@@ -183,11 +232,32 @@ def speedRateChange():
     global playTimer, speedRate
     playTimer += timeutil.deltaTime()
 
-    if playTimer >= 90 and speedRate < 3: speedRate = 3
+    if playTimer >= 120 and speedRate < 5: speedRate = 5
+    elif playTimer >= 90 and speedRate < 3: speedRate = 3
     elif playTimer >= 60 and speedRate < 2: speedRate = 2
     elif playTimer >= 40 and speedRate < 1.8: speedRate = 1.8
     elif playTimer >= 30 and speedRate < 1.4: speedRate = 1.4
     elif playTimer >= 15 and speedRate < 1.2: speedRate = 1.2
+
+def collider():
+    for pip in pipeList:
+        #플레이어 캐릭터의 위치가 파이프의 빈공간(Y)에 있다면
+        if within(player.getY(), pip.getPipeAir() - pip.getSize(), pip.getPipeAir() + pip.getSize()):
+            #파이프 다음 확인
+            continue
+        #플레이어 캐릭터의 위치가 파이프의 x축 범위 내에 있지 않다면
+        if not within(player.getX(), pip.x - PIPE_RECT_WIDTH, pip.x + PIPE_RECT_WIDTH):
+            #파이프 다음 확인
+            continue
+
+        #충돌
+        player.damaged()
+        destroyPipe.append(pip)
+
+        #플레이어가 죽었다면
+        if player.isDie():
+            message("사망하셨습니다.", "버틴시간: {:.2f}s".format(playTimer))
+            init()
  
 def gameLoop():
     global isPlaying
@@ -196,6 +266,7 @@ def gameLoop():
     while isPlaying:
         mainUpdate() #update 실행
         render() #프레임 그리기
+        collider() #플레이어 파이프 충돌 체크
         destroy() #오브젝트 삭제
         timeutil.update() #deltaTime 새로 고침
  
@@ -229,18 +300,18 @@ def render():
 
     for pip in pipeList:
         pipeTurtle.fillcolor("green")
-        pipeTurtle.setpos(pip.x - 30, HEIGHT / 2)
+        pipeTurtle.setpos(pip.x - PIPE_RECT_WIDTH, HEIGHT / 2)
         pipeTurtle.begin_fill()
-        pipeTurtle.setpos(pip.x - 30, pip.getPipeAir() + pip.getSize())
-        pipeTurtle.setpos(pip.x + 30, pip.getPipeAir() + pip.getSize())
-        pipeTurtle.setpos(pip.x + 30, HEIGHT / 2)
+        pipeTurtle.setpos(pip.x - PIPE_RECT_WIDTH, pip.getPipeAir() + pip.getSize())
+        pipeTurtle.setpos(pip.x + PIPE_RECT_WIDTH, pip.getPipeAir() + pip.getSize())
+        pipeTurtle.setpos(pip.x + PIPE_RECT_WIDTH, HEIGHT / 2)
         pipeTurtle.end_fill()
 
-        pipeTurtle.setpos(pip.x - 30, -HEIGHT / 2)
+        pipeTurtle.setpos(pip.x - PIPE_RECT_WIDTH, -HEIGHT / 2)
         pipeTurtle.begin_fill()
-        pipeTurtle.setpos(pip.x - 30, pip.getPipeAir() - pip.getSize())
-        pipeTurtle.setpos(pip.x + 30, pip.getPipeAir() - pip.getSize())
-        pipeTurtle.setpos(pip.x + 30, -HEIGHT / 2)
+        pipeTurtle.setpos(pip.x - PIPE_RECT_WIDTH, pip.getPipeAir() - pip.getSize())
+        pipeTurtle.setpos(pip.x + PIPE_RECT_WIDTH, pip.getPipeAir() - pip.getSize())
+        pipeTurtle.setpos(pip.x + PIPE_RECT_WIDTH, -HEIGHT / 2)
         pipeTurtle.end_fill()
 
         if pip.x < -WIDTH / 2 - 10:
@@ -259,6 +330,7 @@ def destroy():
  
 if __name__ == "__main__":
     #threading.Thread(target=gameLoop).start()
+    init()
     main_screen()
     gameLoop()
     turtle.mainloop()
