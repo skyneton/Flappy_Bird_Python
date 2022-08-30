@@ -33,6 +33,8 @@ JUMP_FORCE = 200
 
 GRAVITY = 130
 
+MAX_LIFE = 3 #MAX_LIFE + 1 = 목숨
+
 playTimer = 0
 
 textTurtle = turtle.Turtle()
@@ -41,7 +43,6 @@ pipeTurtle = turtle.Turtle()
 
 beforePipeAir = random.randrange(-HEIGHT / 2, HEIGHT / 2)
 
-MAX_LIFE = 3 #MAX_LIFE + 1 = 목숨
 
 def init():
     global isStarting, beforePipeAir, timeutil, player, playTimer, cloudTimer, pipeTimer
@@ -212,6 +213,7 @@ def gameStart():
     global player
     player = PlayerManager()
     isStarting = True
+    playTimer = 0
     textTurtle.clear()
 
 def spawnCloud():
